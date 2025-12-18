@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use bitcoin::{
     bip32::{DerivationPath, Fingerprint, Xpub},
     psbt::Psbt,
-    Network,
+    Address, Network,
 };
 use trezor_client::{client::handle_interaction, AvailableDevice, Trezor};
 
@@ -89,8 +89,19 @@ impl HWI for TrezorClient {
             .map(|xpub| xpub.fingerprint())
     }
 
-    async fn display_address(&self, _script: &AddressScript) -> Result<(), HWIError> {
-        return Err(HWIError::UnimplementedMethod);
+    async fn display_address(&self, script: &AddressScript) -> Result<(), HWIError> {
+        match script {
+            AddressScript::P2TR(path) => {
+                let _addr: Address = handle_interaction(self.client.lock().unwrap().get_address(
+                    path,
+                    trezor_client::InputScriptType::SPENDTAPROOT,
+                    self.network,
+                    true,
+                )?)?;
+                Ok(())
+            }
+            AddressScript::Miniscript { .. } => Err(HWIError::UnimplementedMethod),
+        }
     }
 
     async fn sign_tx(&self, _tx: &mut Psbt) -> Result<(), HWIError> {
